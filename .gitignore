@@ -3,6 +3,9 @@
 /build
 erl_crash.dump
 
+# manually added by me to exlcude priv/static server files
+/server/priv
+
 #Added automatically by Lustre Dev Tools
 /.lustre
 /dist
