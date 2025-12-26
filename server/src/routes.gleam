@@ -1,5 +1,7 @@
+import gleam/erlang/process.{type Subject}
 import gleam/http.{Get, Post}
 import gleam/json
+import gleam/otp/actor
 import lustre/attribute
 import lustre/element
 import lustre/element/html
@@ -7,6 +9,7 @@ import storail
 import wisp.{type Request, type Response}
 
 import database
+import pubsub.{type PubSubMessage}
 import shared/groceries.{type GroceryItem}
 
 pub fn app_middleware(
@@ -24,6 +27,7 @@ pub fn app_middleware(
 }
 
 pub fn handle_request(
+  pubsubactor: Subject(PubSubMessage),
   db: storail.Collection(List(GroceryItem)),
   static_directory: String,
   req: Request,
@@ -33,6 +37,13 @@ pub fn handle_request(
   case req.method, wisp.path_segments(req) {
     // API endpoint for saving grocery lists
     Post, ["api", "groceries"] -> database.handle_save_groceries(db, req)
+
+    Post, ["api", "sync"] -> {
+      let test_json = "{\"name\": \"test\", \"quantity\": 1}"
+
+      actor.send(pubsubactor, pubsub.Publish(test_json))
+      wisp.ok()
+    }
 
     // Everything else gets our HTML with hydration data
     Get, _ -> serve_index(db)

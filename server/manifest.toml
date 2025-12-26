@@ -41,3 +41,4 @@ mist = { version = ">= 5.0.3 and < 6.0.0" }
 shared = { path = "../shared" }
 storail = { version = ">= 3.2.0 and < 4.0.0" }
 wisp = { version = ">= 2.1.1 and < 3.0.0" }
+gleam_otp = { version = ">= 1.2.0 and < 2.0.0" }

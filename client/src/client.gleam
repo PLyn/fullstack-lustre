@@ -1,8 +1,10 @@
 import gleam/http/response.{type Response}
 import gleam/int
+import gleam/io
 import gleam/list
 import gleam/option.{type Option}
 import gleam/result
+import gleam/string
 import lustre
 import lustre/attribute
 import lustre/effect.{type Effect}
@@ -47,18 +49,28 @@ fn init(items: List(GroceryItem)) -> #(Model, Effect(Msg)) {
   let model =
     Model(items: items, new_item: "", saving: False, error: option.None)
 
-  #(model, effect.none())
+  #(model, subscribe_to_sse())
 }
 
 // UPDATE ----------------------------------------------------------------------
 
 type Msg {
   ServerSavedList(Result(Response(String), rsvp.Error))
+  ServerSentItem(String)
   UserAddedItem
   UserTypedNewItem(String)
   UserSavedList
   UserUpdatedQuantity(index: Int, quantity: Int)
 }
+
+fn subscribe_to_sse() -> Effect(Msg) {
+  effect.from(fn(dispatch) {
+    do_subscribe_to_sse("/sse", fn(data) { dispatch(ServerSentItem(data)) })
+  })
+}
+
+@external(javascript, "./ffi.mjs", "listen_to_sse")
+fn do_subscribe_to_sse(url: String, dispatch: fn(String) -> Nil) -> Nil
 
 fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
   case msg {
@@ -72,14 +84,26 @@ fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
       effect.none(),
     )
 
+    ServerSentItem(data) -> {
+      // Decode the incoming JSON item
+      let result = json.parse(data, groceries.grocery_item_decoder())
+      io.println("message: " <> string.inspect(result))
+      case result {
+        Ok(item) -> {
+          let updated_items = list.append(model.items, [item])
+          #(Model(..model, items: updated_items), effect.none())
+        }
+        Error(_) -> #(model, effect.none())
+      }
+    }
+
     UserAddedItem -> {
       case model.new_item {
         "" -> #(model, effect.none())
         name -> {
           let item = GroceryItem(name: name, quantity: 1)
-          let updated_items = list.append(model.items, [item])
 
-          #(Model(..model, items: updated_items, new_item: ""), effect.none())
+          #(Model(..model, new_item: ""), sync_list(item))
         }
       }
     }
@@ -105,6 +129,13 @@ fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
 fn save_list(items: List(GroceryItem)) -> Effect(Msg) {
   let body = groceries.grocery_list_to_json(items)
   let url = "/api/groceries"
+
+  rsvp.post(url, body, rsvp.expect_ok_response(ServerSavedList))
+}
+
+fn sync_list(item: GroceryItem) -> Effect(Msg) {
+  let body = groceries.grocery_item_to_json(item)
+  let url = "/api/sync"
 
   rsvp.post(url, body, rsvp.expect_ok_response(ServerSavedList))
 }
