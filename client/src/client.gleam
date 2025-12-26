@@ -113,7 +113,7 @@ fn save_list(items: List(GroceryItem)) -> Effect(Msg) {
 
 fn view(model: Model) -> Element(Msg) {
   let styles = [
-    #("max-width", "30ch"),
+    #("max-width", "42ch"),
     #("margin", "0 auto"),
     #("display", "flex"),
     #("flex-direction", "column"),
@@ -121,7 +121,8 @@ fn view(model: Model) -> Element(Msg) {
   ]
 
   html.div([attribute.styles(styles)], [
-    html.h1([], [html.text("Grocery List")]),
+    html.h1([], [html.text("Realtime Grocery List")]),
+    html.h3([], [html.text("Collaborate with others")]),
     view_grocery_list(model.items),
     view_new_item(model.new_item),
     html.div([], [
