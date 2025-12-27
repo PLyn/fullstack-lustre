@@ -12,6 +12,8 @@ import database
 import pubsub.{type PubSubMessage}
 import shared/groceries.{type GroceryItem}
 
+// CONSIDER RENAMING TO ROUTER INSTEAD OF ROUTES
+
 pub fn app_middleware(
   req: Request,
   static_directory: String,
@@ -38,6 +40,7 @@ pub fn handle_request(
     // API endpoint for saving grocery lists
     Post, ["api", "groceries"] -> database.handle_save_groceries(db, req)
 
+    //API endpoint for sending a message to publish via SSE
     Post, ["api", "sync"] -> {
       let test_json = "{\"name\": \"test\", \"quantity\": 1}"
 
