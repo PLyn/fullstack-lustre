@@ -9,20 +9,6 @@ import wisp.{type Request, type Response}
 import db
 import shared/groceries
 
-pub fn app_middleware(
-  req: Request,
-  static_directory: String,
-  next: fn(Request) -> Response,
-) -> Response {
-  let req = wisp.method_override(req)
-  use <- wisp.log_request(req)
-  use <- wisp.rescue_crashes
-  use req <- wisp.handle_head(req)
-  use <- wisp.serve_static(req, under: "/static", from: static_directory)
-
-  next(req)
-}
-
 pub fn handle_request(
   ctx: db.Context,
   static_directory: String,
@@ -40,6 +26,20 @@ pub fn handle_request(
     // Fallback for other methods/paths
     _, _ -> wisp.not_found()
   }
+}
+
+pub fn app_middleware(
+  req: Request,
+  static_directory: String,
+  next: fn(Request) -> Response,
+) -> Response {
+  let req = wisp.method_override(req)
+  use <- wisp.log_request(req)
+  use <- wisp.rescue_crashes
+  use req <- wisp.handle_head(req)
+  use <- wisp.serve_static(req, under: "/static", from: static_directory)
+
+  next(req)
 }
 
 pub fn serve_index(ctx: db.Context) -> Response {

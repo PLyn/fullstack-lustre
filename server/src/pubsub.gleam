@@ -1,15 +1,16 @@
-import gleam/bytes_tree
 import gleam/erlang/process.{type Subject}
-import gleam/http/response
 import gleam/io
 import gleam/list
 import gleam/otp/actor
-import mist
+import gleam/string
 
 pub type PubSubMessage {
-  Subscribe(client: Subject(String))
-  Unsubscribe(client: Subject(String))
+  Subscribe(id: process.Pid, client: Subject(String))
+  Unsubscribe(id: process.Pid, client: Subject(String))
   Publish(String)
+  PublishNewItem(String)
+  PublishUpdateItem(String)
+  PublishDeleteItem(String)
 }
 
 pub fn handle_pubsub_message(
@@ -17,25 +18,33 @@ pub fn handle_pubsub_message(
   message: PubSubMessage,
 ) {
   case message {
-    Subscribe(client) -> {
-      io.println("➕ Client connected")
+    Subscribe(id, client) -> {
+      io.println(string.inspect(id) <> " client connected")
       actor.continue([client, ..clients])
     }
-    Unsubscribe(client) -> {
-      io.println("➖ Client disconnected")
+    Unsubscribe(id, client) -> {
+      io.println(string.inspect(id) <> " Client disconnected")
       clients
       |> list.filter(fn(c) { c != client })
       |> actor.continue
     }
     Publish(message) -> {
-      io.println("💬 " <> message)
-      list.each(clients, fn(client) { process.send(client, message) })
-      actor.continue(clients)
+      publish_message(clients, message)
+    }
+    PublishNewItem(message) -> {
+      publish_message(clients, message)
+    }
+    PublishUpdateItem(message) -> {
+      publish_message(clients, message)
+    }
+    PublishDeleteItem(message) -> {
+      publish_message(clients, message)
     }
   }
 }
 
-pub fn new_response(status: Int, body: String) {
-  response.new(status)
-  |> response.set_body(body |> bytes_tree.from_string |> mist.Bytes)
+fn publish_message(clients: List(Subject(String)), message: String) {
+  io.println("💬 " <> message)
+  list.each(clients, fn(client) { process.send(client, message) })
+  actor.continue(clients)
 }

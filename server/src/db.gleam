@@ -69,6 +69,11 @@ pub fn insert_item(
   sql.insert_item(db, item.name, item.quantity)
 }
 
+pub fn publish_item(ctx: Context, item: GroceryItem) {
+  let item_json = groceries.grocery_item_to_json(item)
+  actor.send(ctx.pubsub, pubsub.Publish(json.to_string(item_json)))
+}
+
 pub fn insert_publish_item(
   ctx: Context,
   item: GroceryItem,

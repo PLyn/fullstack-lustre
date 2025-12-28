@@ -44,7 +44,8 @@ fn serve_sse(req: request.Request(mist.Connection), ctx: db.Context) {
     response.new(200),
     init: fn(_conn) {
       let client = process.new_subject()
-      actor.send(ctx.pubsub, pubsub.Subscribe(client))
+      let assert Ok(pid) = process.subject_owner(client)
+      actor.send(ctx.pubsub, pubsub.Subscribe(pid, client))
 
       let selector =
         process.new_selector()
@@ -55,11 +56,12 @@ fn serve_sse(req: request.Request(mist.Connection), ctx: db.Context) {
       |> Ok
     },
     loop: fn(client, message, connection) {
+      let assert Ok(pid) = process.subject_owner(client)
       let event = message |> string_tree.from_string |> mist.event
       case mist.send_event(connection, event) {
         Ok(_) -> actor.continue(client)
         Error(_) -> {
-          actor.send(ctx.pubsub, pubsub.Unsubscribe(client))
+          actor.send(ctx.pubsub, pubsub.Unsubscribe(pid, client))
           actor.stop()
         }
       }
