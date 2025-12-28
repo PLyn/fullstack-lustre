@@ -1,18 +1,13 @@
-import gleam/erlang/process.{type Subject}
+import gleam/dynamic/decode
 import gleam/http.{Get, Post}
 import gleam/json
-import gleam/otp/actor
 import lustre/attribute
 import lustre/element
 import lustre/element/html
-import storail
 import wisp.{type Request, type Response}
 
-import database
-import pubsub.{type PubSubMessage}
-import shared/groceries.{type GroceryItem}
-
-// CONSIDER RENAMING TO ROUTER INSTEAD OF ROUTES
+import db
+import shared/groceries
 
 pub fn app_middleware(
   req: Request,
@@ -29,35 +24,26 @@ pub fn app_middleware(
 }
 
 pub fn handle_request(
-  pubsubactor: Subject(PubSubMessage),
-  db: storail.Collection(List(GroceryItem)),
+  ctx: db.Context,
   static_directory: String,
   req: Request,
 ) -> Response {
   use req <- app_middleware(req, static_directory)
 
   case req.method, wisp.path_segments(req) {
-    // API endpoint for saving grocery lists
-    Post, ["api", "groceries"] -> database.handle_save_groceries(db, req)
-
-    //API endpoint for sending a message to publish via SSE
-    Post, ["api", "sync"] -> {
-      let test_json = "{\"name\": \"test\", \"quantity\": 1}"
-
-      actor.send(pubsubactor, pubsub.Publish(test_json))
-      wisp.ok()
-    }
+    //API endpoint for inserting db item and publishing via SSE
+    Post, ["api", "sync"] -> insert_publish_item(ctx, req)
 
     // Everything else gets our HTML with hydration data
-    Get, _ -> serve_index(db)
+    Get, _ -> serve_index(ctx)
 
     // Fallback for other methods/paths
     _, _ -> wisp.not_found()
   }
 }
 
-pub fn serve_index(db: storail.Collection(List(GroceryItem))) -> Response {
-  let items = database.fetch_items_from_db(db)
+pub fn serve_index(ctx: db.Context) -> Response {
+  let items = db.fetch_items(ctx)
 
   let html =
     html.html([], [
@@ -79,4 +65,18 @@ pub fn serve_index(db: storail.Collection(List(GroceryItem))) -> Response {
   html
   |> element.to_document_string
   |> wisp.html_response(200)
+}
+
+fn insert_publish_item(ctx: db.Context, req: Request) -> Response {
+  use json <- wisp.require_json(req)
+
+  case decode.run(json, groceries.grocery_item_decoder()) {
+    Ok(item) -> {
+      case db.insert_publish_item(ctx, item) {
+        Ok(_) -> wisp.ok()
+        Error(_) -> wisp.internal_server_error()
+      }
+    }
+    Error(_) -> wisp.bad_request("Invalid JSON")
+  }
 }
