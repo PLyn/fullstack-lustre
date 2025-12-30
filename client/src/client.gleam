@@ -1,22 +1,14 @@
-import gleam/http/response.{type Response}
-import gleam/int
-import gleam/io
-import gleam/list
-import gleam/option.{type Option}
+import gleam/json
 import gleam/result
-import gleam/string
+import home
+import item_list
 import lustre
-import lustre/attribute
 import lustre/effect.{type Effect}
 import lustre/element.{type Element}
 import lustre/element/html
-import lustre/event
-import rsvp
-import shared/groceries.{type GroceryItem, GroceryItem}
-
-import gleam/json
 import plinth/browser/document
 import plinth/browser/element as plinth_element
+import shared/groceries
 
 pub fn main() {
   let initial_items =
@@ -36,182 +28,72 @@ pub fn main() {
 
 // MODEL -----------------------------------------------------------------------
 
-type Model {
-  Model(
-    items: List(GroceryItem),
-    new_item: String,
-    saving: Bool,
-    error: Option(String),
-  )
+pub type Model {
+  Model(current_page: Page)
 }
 
-fn init(items: List(GroceryItem)) -> #(Model, Effect(Msg)) {
-  let model =
-    Model(items: items, new_item: "", saving: False, error: option.None)
+pub type Page {
+  HomePage(home.Model)
+  ItemListPage(item_list.Model)
+}
 
-  #(model, subscribe_to_sse())
+fn init(items: List(groceries.GroceryItem)) -> #(Model, Effect(Msg)) {
+  let #(item_list_model, item_list_effect) = item_list.init(items)
+  let model = Model(current_page: ItemListPage(item_list_model))
+
+  #(model, effect.map(item_list_effect, ItemListMsg))
 }
 
 // UPDATE ----------------------------------------------------------------------
 
-type Msg {
-  ServerSavedList(Result(Response(String), rsvp.Error))
-  ServerSentItem(String)
-  UserAddedItem
-  UserTypedNewItem(String)
-  UserSavedList
-  UserUpdatedQuantity(index: Int, quantity: Int)
+pub type Msg {
+  HomeMsg(home.Msg)
+  ItemListMsg(item_list.Msg)
 }
 
-fn subscribe_to_sse() -> Effect(Msg) {
-  effect.from(fn(dispatch) {
-    do_subscribe_to_sse("/sse", fn(data) { dispatch(ServerSentItem(data)) })
-  })
-}
-
-@external(javascript, "./ffi.mjs", "listen_to_sse")
-fn do_subscribe_to_sse(url: String, dispatch: fn(String) -> Nil) -> Nil
-
-fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
+pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
   case msg {
-    ServerSavedList(Ok(_)) -> #(
-      Model(..model, saving: False, error: option.None),
-      effect.none(),
-    )
-
-    ServerSavedList(Error(_)) -> #(
-      Model(..model, saving: False, error: option.Some("Failed to save list")),
-      effect.none(),
-    )
-
-    ServerSentItem(data) -> {
-      // Decode the incoming JSON item
-      let result = json.parse(data, groceries.grocery_item_decoder())
-      io.println("message: " <> string.inspect(result))
-      case result {
-        Ok(item) -> {
-          let updated_items = list.append(model.items, [item])
-          #(Model(..model, items: updated_items), effect.none())
+    HomeMsg(home_msg) -> {
+      case model.current_page {
+        HomePage(home_model) -> {
+          let #(new_home_model, home_effect) = home.update(home_msg, home_model)
+          #(
+            Model(current_page: HomePage(new_home_model)),
+            effect.map(home_effect, HomeMsg),
+          )
         }
-        Error(_) -> #(model, effect.none())
+        _ -> #(model, effect.none())
       }
     }
 
-    UserAddedItem -> {
-      case model.new_item {
-        "" -> #(model, effect.none())
-        name -> {
-          let item = GroceryItem(name: name, quantity: 1)
-
-          #(Model(..model, new_item: ""), sync_list(item))
+    ItemListMsg(item_list_msg) -> {
+      case model.current_page {
+        ItemListPage(item_list_model) -> {
+          let #(new_item_list_model, item_list_effect) =
+            item_list.update(item_list_msg, item_list_model)
+          #(
+            Model(current_page: ItemListPage(new_item_list_model)),
+            effect.map(item_list_effect, ItemListMsg),
+          )
         }
+        _ -> #(model, effect.none())
       }
-    }
-
-    UserTypedNewItem(text) -> #(Model(..model, new_item: text), effect.none())
-
-    UserSavedList -> #(Model(..model, saving: True), save_list(model.items))
-
-    UserUpdatedQuantity(index:, quantity:) -> {
-      let updated_items =
-        list.index_map(model.items, fn(item, item_index) {
-          case item_index == index {
-            True -> GroceryItem(..item, quantity:)
-            False -> item
-          }
-        })
-
-      #(Model(..model, items: updated_items), effect.none())
     }
   }
-}
-
-fn save_list(items: List(GroceryItem)) -> Effect(Msg) {
-  let body = groceries.grocery_list_to_json(items)
-  let url = "/api/groceries"
-
-  rsvp.post(url, body, rsvp.expect_ok_response(ServerSavedList))
-}
-
-fn sync_list(item: GroceryItem) -> Effect(Msg) {
-  let body = groceries.grocery_item_to_json(item)
-  let url = "/api/sync"
-
-  rsvp.post(url, body, rsvp.expect_ok_response(ServerSavedList))
 }
 
 // VIEW ------------------------------------------------------------------------
 
 fn view(model: Model) -> Element(Msg) {
-  let styles = [
-    #("max-width", "42ch"),
-    #("margin", "0 auto"),
-    #("display", "flex"),
-    #("flex-direction", "column"),
-    #("gap", "1em"),
-  ]
-
-  html.div([attribute.styles(styles)], [
-    html.h1([], [html.text("Realtime Grocery List")]),
-    html.h3([], [html.text("Collaborate with others")]),
-    view_grocery_list(model.items),
-    view_new_item(model.new_item),
-    html.div([], [
-      html.button(
-        [event.on_click(UserSavedList), attribute.disabled(model.saving)],
-        [
-          html.text(case model.saving {
-            True -> "Saving..."
-            False -> "Save List"
-          }),
-        ],
-      ),
-    ]),
-    case model.error {
-      option.None -> element.none()
-      option.Some(error) ->
-        html.div([attribute.style("color", "red")], [html.text(error)])
-    },
-  ])
-}
-
-fn view_new_item(new_item: String) -> Element(Msg) {
   html.div([], [
-    html.input([
-      attribute.placeholder("Enter item name"),
-      attribute.value(new_item),
-      event.on_input(UserTypedNewItem),
-    ]),
-    html.button([event.on_click(UserAddedItem)], [html.text("Add")]),
-  ])
-}
+    case model.current_page {
+      HomePage(home_model) ->
+        home.view(home_model)
+        |> element.map(HomeMsg)
 
-fn view_grocery_list(items: List(GroceryItem)) -> Element(Msg) {
-  case items {
-    [] -> html.p([], [html.text("No items in your list yet.")])
-    _ -> {
-      html.ul(
-        [],
-        list.index_map(items, fn(item, index) {
-          html.li([], [view_grocery_item(item, index)])
-        }),
-      )
-    }
-  }
-}
-
-fn view_grocery_item(item: GroceryItem, index: Int) -> Element(Msg) {
-  html.div([attribute.styles([#("display", "flex"), #("gap", "1em")])], [
-    html.span([attribute.style("flex", "1")], [html.text(item.name)]),
-    html.input([
-      attribute.style("width", "4em"),
-      attribute.type_("number"),
-      attribute.value(int.to_string(item.quantity)),
-      attribute.min("0"),
-      event.on_input(fn(value) {
-        result.unwrap(int.parse(value), 0)
-        |> UserUpdatedQuantity(index, quantity: _)
-      }),
-    ]),
+      ItemListPage(item_list_model) ->
+        item_list.view(item_list_model)
+        |> element.map(ItemListMsg)
+    },
   ])
 }
