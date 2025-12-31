@@ -156,7 +156,7 @@ fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
 fn view(model: Model) -> Element(Msg) {
   html.div([], [
     html.nav([attribute.class("flex justify-between items-center my-16")], [
-      html.h1([attribute.class("text-purple-600 font-medium text-xl")], [
+      html.h1([attribute.class("text-red-600 font-medium text-xl")], [
         html.a([href(Home)], [html.text("My little Blog")]),
       ]),
       html.ul([attribute.class("flex space-x-8")], [
@@ -218,7 +218,7 @@ fn view_home() -> List(Element(msg)) {
       "Or whoever you may be! This is were I will share random ramblings
        and thoughts about life.",
     ),
-    html.p([attribute.class("mt-14")], [
+    html.p([attribute.class("text-blue-600 mt-14 font-bold")], [
       html.text("There is not much going on at the moment, but you can still "),
       link(ItemList, "read my ramblings ->"),
     ]),
