@@ -37,8 +37,11 @@ pub fn view(_model: Model) -> Element(Msg) {
   html.div([attribute.styles(styles)], [
     html.h1([], [html.text("Home Page")]),
     html.p([], [html.text("Welcome to the home page!")]),
-    html.button([event.on_click(ExampleButtonClicked)], [
-      html.text("Example Button"),
-    ]),
+    html.button(
+      [attribute.class("btn btn-primary"), event.on_click(ExampleButtonClicked)],
+      [
+        html.text("Example Button"),
+      ],
+    ),
   ])
 }
