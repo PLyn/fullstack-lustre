@@ -47,10 +47,6 @@ fn parse_route(uri: Uri) -> Route {
   }
 }
 
-/// We also need a way to turn a Route back into a an `href` attribute that we
-/// can then use on `html.a` elements. It is important to keep this function in
-/// sync with the parsing, but once you do, all links are guaranteed to work!
-///
 fn href(route: Route) -> Attribute(msg) {
   let url = case route {
     Home -> "/"
@@ -128,11 +124,11 @@ fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
 
 fn view(model: Model) -> Element(Msg) {
   html.div([], [
-    html.nav([attribute.class("flex justify-between items-center my-16")], [
-      html.h1([attribute.class("text-red-600 font-medium text-xl")], [
+    html.nav([attribute.class("nav-header")], [
+      html.h1([attribute.class("site-title")], [
         html.a([href(Home)], [html.text("My little Blog")]),
       ]),
-      html.ul([attribute.class("flex space-x-8")], [
+      html.ul([attribute.class("nav-list")], [
         view_header_link(current: model.route, to: ItemList, label: "Item List"),
         view_header_link(current: model.route, to: Home, label: "Home"),
       ]),
@@ -155,8 +151,8 @@ fn view_header_link(
   html.li(
     [
       attribute.classes([
-        #("border-transparent border-b-2 hover:border-purple-600", True),
-        #("text-purple-600", is_active),
+        #("nav-link", True),
+        #("nav-link-active", is_active),
       ]),
     ],
     [html.a([href(target)], [html.text(text)])],
@@ -181,13 +177,12 @@ fn view_item_list(model: Model) -> Element(Msg) {
 
 fn view_not_found() -> Element(msg) {
   html.div([], [
-    html.h2([attribute.class("text-3xl text-purple-800 font-light")], [
+    html.h2([attribute.class("not-found-title")], [
       html.text("Not Found"),
     ]),
-    html.p([attribute.class("mt-14")], [
+    html.p([attribute.class("not-found-text")], [
       html.text(
-        "You glimpse into the void and see -- nothing?
-     Well that was somewhat expected.",
+        "You glimpse into the void and see -- nothing? Well that was somewhat expected.",
       ),
     ]),
   ])

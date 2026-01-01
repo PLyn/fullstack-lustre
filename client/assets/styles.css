@@ -1,0 +1,59 @@
+/* Navigation Header */
+.nav-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 4rem;
+    margin-bottom: 4rem;
+}
+
+/* Site Title */
+.site-title {
+    color: #dc2626; /* red-600 */
+    font-weight: 500;
+    font-size: 1.25rem;
+}
+
+.site-title a {
+    text-decoration: none;
+    color: inherit;
+}
+
+/* Navigation List */
+.nav-list {
+    display: flex;
+    gap: 2rem;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+/* Navigation Links */
+.nav-link {
+    border-bottom: 2px solid transparent;
+    transition: border-color 0.3s ease;
+}
+
+.nav-link:hover {
+    border-bottom-color: #9333ea; /* purple-600 */
+}
+
+.nav-link a {
+    text-decoration: none;
+    color: inherit;
+}
+
+.nav-link-active {
+    color: #9333ea; /* purple-600 */
+}
+
+/* Not Found Page */
+.not-found-title {
+    font-size: 1.875rem;
+    color: #7e22ce; /* purple-800 */
+    font-weight: 300;
+}
+
+.not-found-text {
+    margin-top: 3.5rem;
+}

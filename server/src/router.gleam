@@ -51,7 +51,7 @@ pub fn serve_index(ctx: db.Context) -> Response {
         html.title([], "Grocery List"),
         html.link([
           attribute.rel("stylesheet"),
-          attribute.href("/static/client.css"),
+          attribute.href("/static/styles.css"),
           // Add this line
         ]),
         html.script(
